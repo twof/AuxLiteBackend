@@ -52,7 +52,13 @@ public func routes(_ router: Router) throws {
             .get(sessionId, as: Session.self)
             .unwrap(or: Abort(.unauthorized))
             .and(PartyRoom.find(partyId, on: req).unwrap(or: Abort(.notFound)))
-            .flatMap { (session, partyRoom) -> Future<PartyRoom> in
+            .map { (session, partyRoom) -> (Session, PartyRoom) in
+                if partyRoom.members.contains(sessionId) {
+                    throw Abort(.badRequest, reason: "you are already in this party!")
+                } else {
+                    return (session, partyRoom)
+                }
+            }.flatMap { (session, partyRoom) -> Future<PartyRoom> in
                 var updatedRoom = partyRoom
                 updatedRoom.members.append(sessionId)
                 return updatedRoom.update(on: req)

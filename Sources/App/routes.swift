@@ -4,7 +4,10 @@ import FluentSQLite
 /// Register your application's routes here.
 public func routes(_ router: Router) throws {
     // Basic "Hello, world!" example
-    router.get("hello") { req -> Future<Song> in
+    
+    let sessionAuthedRoute = router.grouped(SessionAuthMiddleware())
+    
+    sessionAuthedRoute.get("hello") { req -> Future<Song> in
         let spotify = try req.make(SpotifyService.self)
         
         return try spotify.getSong(songId: "2TpxZ7JUBn3uw46aR7qd6V", on: req)
@@ -43,34 +46,56 @@ public func routes(_ router: Router) throws {
             }
     }
     
-    router.put("joinParty") { (req) -> Future<PartyRoom> in
+    sessionAuthedRoute.put("joinParty") { (req) -> Future<PartyRoom> in
+        // should always succeed because of auth middleware
+        guard let sessionId = req.http.headers.firstValue(name: .authorization) else { fatalError() }
         guard let partyId: PartyRoom.ID = try req.content.syncGet(at: "partyId") else { throw Abort(.notFound) }
-        guard let sessionId = req.http.headers.firstValue(name: .authorization) else { throw Abort(.unauthorized) }
         
-        return try req
-            .keyedCache(for: .sqlite)
-            .get(sessionId, as: Session.self)
-            .unwrap(or: Abort(.unauthorized))
-            .and(PartyRoom.find(partyId, on: req).unwrap(or: Abort(.notFound)))
-            .map { (session, partyRoom) -> (Session, PartyRoom) in
+        return PartyRoom.find(partyId, on: req).unwrap(or: Abort(.notFound))
+            .map { partyRoom -> PartyRoom in
                 if partyRoom.members.contains(sessionId) {
                     throw Abort(.badRequest, reason: "you are already in this party!")
                 } else {
-                    return (session, partyRoom)
+                    return partyRoom
                 }
-            }.flatMap { (session, partyRoom) -> Future<PartyRoom> in
+            }.flatMap { partyRoom -> Future<PartyRoom> in
                 var updatedRoom = partyRoom
                 updatedRoom.members.append(sessionId)
                 return updatedRoom.update(on: req)
             }
     }
     
+    router.post("track") { (req) -> String in
+//        guard let partyId: PartyRoom.ID = try req.content.syncGet(at: "partyId") else {throw Abort(.badRequest)}
+//        let newTrack = try req.content.syncGet(Track.self, at: "track")
+//
+//        let savedTrackFuture = newTrack.save(on: req)
+//        let partyRoomWithIdFuture = PartyRoom.find(partyId, on: req).unwrap(or: Abort(.notFound))
+//        map(to: <#T##Result.Type#>, <#T##futureA: EventLoopFuture<A>##EventLoopFuture<A>#>, <#T##futureB: EventLoopFuture<B>##EventLoopFuture<B>#>, <#T##callback: (A, B) throws -> (Result)##(A, B) throws -> (Result)#>)
+//            .flatMap { track, partyRoom in
+//                return track.rooms.attach(partyRoom, on: req).transform(to: partyRoom)
+//            }
+//
+//
+//            .map { (partyRoom) -> (PartyRoom, Future<[Track]>) in
+//                return (partyRoom, try partyRoom.tracks.query(on: req).all())
+//            }
+        
+        return "hello"
+    }
+    
+//    router.put(Track.self, at: "track") { (req, track) -> ResponseEncodable in
+//        <#code#>
+//    }
+    
+//    router.put(, Track.ID.parameter) { req -> String in
+//        return "hello \()"
+//    }
+    
     // create a route at GET /sessions/get
     router.get("get") { req -> Future<String> in
         // access "name" from session or return n/a
         let name = try req.session()["name"] ?? "n/a"
-        let id = try req.session().id ?? "no id"
-        let encoder = JSONEncoder()
         
         let session = Session(dateIssued: Date(), userName: name)
         let sessionId = try req.session().id!
@@ -78,8 +103,6 @@ public func routes(_ router: Router) throws {
             .keyedCache(for: .sqlite)
             .set(sessionId, to: session)
             .transform(to: sessionId)
-       
-//        return try encoder.encode([name, id]).toString().encode(for: req)
     }
     
     // create a route at GET /sessions/set/:name

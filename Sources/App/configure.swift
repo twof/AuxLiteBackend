@@ -15,6 +15,8 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     services.register(cache, as: KeyedCache.self)
     
     config.prefer(MemoryKeyedCache.self, for: KeyedCache.self)
+    
+//    services.register(SessionAuthMiddleware())
 
     /// Register middleware
     var middlewares = MiddlewareConfig() // Create _empty_ middleware config
@@ -40,6 +42,7 @@ public func configure(_ config: inout Config, _ env: inout Environment, _ servic
     migrations.add(model: User.self, database: .sqlite)
     migrations.add(model: PartyRoom.self, database: .sqlite)
     migrations.add(model: Track.self, database: .sqlite)
+    migrations.add(model: RoomTrackPivot.self, database: .sqlite)
     migrations.prepareCache(for: .sqlite)
     services.register(migrations)
 }

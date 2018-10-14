@@ -1,5 +1,6 @@
 import Vapor
 import FluentSQLite
+import CrudRouter
 
 /// Register your application's routes here.
 public func routes(_ router: Router) throws {
@@ -7,11 +8,15 @@ public func routes(_ router: Router) throws {
     
     let sessionAuthedRoute = router.grouped(SessionAuthMiddleware())
     
-    sessionAuthedRoute.get("hello") { req -> Future<Song> in
-        let spotify = try req.make(SpotifyService.self)
-        
-        return try spotify.getSong(songId: "2TpxZ7JUBn3uw46aR7qd6V", on: req)
-    }
+//    router.get("hello") { req -> Future<Song> in
+//        let spotify = try req.make(SpotifyService.self)
+//        
+//        return try spotify
+//            .getSong(songId: "2TpxZ7JUBn3uw46aR7qd6V", on: req)
+//            .map { track in
+//                
+//            }
+//    }
     
     router.get("wordlist") { req -> Future<Response> in
         let encoder = JSONEncoder()
@@ -46,24 +51,7 @@ public func routes(_ router: Router) throws {
             }
     }
     
-    sessionAuthedRoute.put("joinParty") { (req) -> Future<PartyRoom> in
-        // should always succeed because of auth middleware
-        guard let sessionId = req.http.headers.firstValue(name: .authorization) else { fatalError() }
-        guard let partyId: PartyRoom.ID = try req.content.syncGet(at: "partyId") else { throw Abort(.notFound) }
-        
-        return PartyRoom.find(partyId, on: req).unwrap(or: Abort(.notFound))
-            .map { partyRoom -> PartyRoom in
-                if partyRoom.members.contains(sessionId) {
-                    throw Abort(.badRequest, reason: "you are already in this party!")
-                } else {
-                    return partyRoom
-                }
-            }.flatMap { partyRoom -> Future<PartyRoom> in
-                var updatedRoom = partyRoom
-                updatedRoom.members.append(sessionId)
-                return updatedRoom.update(on: req)
-            }
-    }
+    router.put("joinParty", use: PartyRoomController().join)
     
     router.post("track") { (req) -> String in
 //        guard let partyId: PartyRoom.ID = try req.content.syncGet(at: "partyId") else {throw Abort(.badRequest)}
@@ -93,37 +81,37 @@ public func routes(_ router: Router) throws {
 //    }
     
     // create a route at GET /sessions/get
-    router.get("get") { req -> Future<String> in
-        // access "name" from session or return n/a
-        let name = try req.session()["name"] ?? "n/a"
-        
-        let session = Session(dateIssued: Date(), userName: name)
-        let sessionId = try req.session().id!
-        return try req
-            .keyedCache(for: .sqlite)
-            .set(sessionId, to: session)
-            .transform(to: sessionId)
-    }
-    
-    // create a route at GET /sessions/set/:name
-    router.get("set", String.parameter) { req -> String in
-        // get router param
-        let name = try req.parameters.next(String.self)
-        
-        // set name to session at key "name"
-        try req.session()["name"] = name
-        
-        return name
-    }
-    
-    // create a route at GET /sessions/del
-    router.get("del") { req -> String in
-        // destroy the session
-        try req.destroySession()
-        
-        // signal success
-        return "done"
-    }
+//    router.get("get") { req -> Future<String> in
+//        // access "name" from session or return n/a
+//        let name = try req.session()["name"] ?? "n/a"
+//        
+//        let session = Session(dateIssued: Date(), userName: name)
+//        let sessionId = try req.session().id!
+//        return try req
+//            .keyedCache(for: .sqlite)
+//            .set(sessionId, to: session)
+//            .transform(to: sessionId)
+//    }
+//    
+//    // create a route at GET /sessions/set/:name
+//    router.get("set", String.parameter) { req -> String in
+//        // get router param
+//        let name = try req.parameters.next(String.self)
+//        
+//        // set name to session at key "name"
+//        try req.session()["name"] = name
+//        
+//        return name
+//    }
+//    
+//    // create a route at GET /sessions/del
+//    router.get("del") { req -> String in
+//        // destroy the session
+//        try req.destroySession()
+//        
+//        // signal success
+//        return "done"
+//    }
 
     // Example of configuring a controller
     let todoController = TodoController()

@@ -5,6 +5,13 @@ import Vapor
 public func configure(_ config: inout Config, _ env: inout Environment, _ services: inout Services) throws {
     /// Register providers first
     try services.register(FluentSQLiteProvider())
+    
+    guard let spotifyId = Environment.get("SPOTIFY_ID") else { return }
+    guard let spotifySecret = Environment.get("SPOTIFY_SECRET") else { return }
+    
+    let spotifyService = Spotify(clientId: spotifyId, clientSecret: spotifySecret)
+    
+    services.register(spotifyService, as: SpotifyService.self)
 
     /// Register routes to the router
     let router = EngineRouter.default()

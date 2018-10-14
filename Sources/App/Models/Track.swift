@@ -1,12 +1,13 @@
 import FluentSQLite
 import Vapor
 
-struct Track: SQLiteModel {
+struct Track: Codable {
     var id: Int?
     let name: String
     let artist: String
 }
 
+extension Track: SQLiteModel { }
 extension Track: Migration { }
 extension Track: Content { }
 extension Track: Parameter { }
